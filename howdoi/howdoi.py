@@ -110,6 +110,7 @@ def _get_result(url):
 
 
 def _get_links(query):
+    """Return all google result links."""
     result = _get_result(SEARCH_URL.format(site=URL,
                                            query=url_quote(query)))
     html = pq(result)
@@ -168,21 +169,37 @@ def _get_questions(links):
 
 
 def _get_answer(args, links):
+    """Return answer_text with pretty output using pygments."""
     links = _get_questions(links)
     link = get_link_at_pos(links, args['pos'])
     if not link:
         return False
+    # -=> Kalau perintah hanya untuk mendapatkan link
+    # -=> Maka kasihkan link saja
     if args.get('link'):
         return link
+    # -=> Untuk memastikan bhw jawaban di stackoverflow berdasarkan
+    # vote
     page = _get_result(link + '?answertab=votes')
     html = pq(page)
 
+    # -=> dapatkan jawaban pertama dengan class answer
     first_answer = html('.answer').eq(0)
+    # -=> dapatkan satubaris kode pertama, atau multi baris
     instructions = first_answer.find('pre') or first_answer.find('code')
+    # -=> dan janganlupa cari post tag untuk kepentingan pygments
     args['tags'] = [t.text for t in html('.post-tag')]
 
+    # -=> but, kalau tidak dapat kode baik sebaris atau multi
+    # -=> tapi dia tidak memilih display full text secara utuh
+    # -=> maka dapatkan post-text secara utuh dan tanpa berikan
+    # -=> format output ---> ini bedanya sama yang dibawah,
+    # -=> krn kalau dengan sengaja kita pilih all, mk kalau dapat
+    # -=> tag yang menunjukkan code langsung di highlight
     if not instructions and not args['all']:
         text = first_answer.find('.post-text').eq(0).text()
+    # -=> kalau dia memilih semua jawaban
+
     elif args['all']:
         texts = []
         for html_tag in first_answer.items('.post-text > *'):
@@ -203,11 +220,13 @@ def _get_answer(args, links):
 
 
 def _get_instructions(args):
+    """Return answes_text berdasarkan jumlah yang diinginkan."""
     links = _get_links(args['query'])
 
     if not links:
         return False
     answers = []
+    # ==> this is return true or false
     append_header = args['num_answers'] > 1
     initial_position = args['pos']
     for answer_number in range(args['num_answers']):
