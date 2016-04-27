@@ -14,6 +14,7 @@ import os
 import random
 import re
 import requests
+# ==> link repo : https://github.com/reclosedev/requests-cache
 import requests_cache
 import sys
 from . import __version__
@@ -23,6 +24,7 @@ from pygments.lexers import guess_lexer, get_lexer_by_name
 from pygments.formatters.terminal import TerminalFormatter
 from pygments.util import ClassNotFound
 
+# ==> JQuery like in python : https://github.com/dsc/pyquery
 from pyquery import PyQuery as pq
 from requests.exceptions import ConnectionError
 from requests.exceptions import SSLError
@@ -45,23 +47,34 @@ else:
 
 
 if os.getenv('HOWDOI_DISABLE_SSL'):  # Set http instead of https
-    SEARCH_URL = 'http://www.google.com/search?q=site:{0}%20{1}'
+    SEARCH_URL = 'http://www.google.com/search?q=site:{site}%20{query}'
     VERIFY_SSL_CERTIFICATE = False
 else:
-    SEARCH_URL = 'https://www.google.com/search?q=site:{0}%20{1}'
+    SEARCH_URL = 'https://www.google.com/search?q=site:{site}%20{query}'
     VERIFY_SSL_CERTIFICATE = True
 
 URL = os.getenv('HOWDOI_URL') or 'stackoverflow.com'
 
-USER_AGENTS = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:11.0) Gecko/20100101 Firefox/11.0',
-               'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:22.0) Gecko/20100 101 Firefox/22.0',
-               'Mozilla/5.0 (Windows NT 6.1; rv:11.0) Gecko/20100101 Firefox/11.0',
-               ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_4) AppleWebKit/536.5 (KHTML, like Gecko) '
+USER_AGENTS = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10.7; rv:11.0)\
+               Gecko/20100101 Firefox/11.0',
+               'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:22.0)\
+               Gecko/20100 101 Firefox/22.0',
+               'Mozilla/5.0 (Windows NT 6.1; rv:11.0)\
+               Gecko/20100101 Firefox/11.0',
+               ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_4)\
+                AppleWebKit/536.5 (KHTML, like Gecko) '
                 'Chrome/19.0.1084.46 Safari/536.5'),
-               ('Mozilla/5.0 (Windows; Windows NT 6.1) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.46'
-                'Safari/536.5'), )
+               ('Mozilla/5.0 (Windows; Windows NT 6.1)\
+                AppleWebKit/536.5\
+                (KHTML, like Gecko) Chrome/19.0.1084.46'
+                'Safari/536.5'),
+               )
+# ==> ini menggunakan fungsi u yang didefinisi diatas
+# ==> yang berguna untuk mengunicode string
 ANSWER_HEADER = u('--- Answer {0} ---\n{1}')
 NO_ANSWER_MSG = '< no answer given >'
+# ==> ini untuk membuat file cache
+# ==> catet !!
 XDG_CACHE_DIR = os.environ.get('XDG_CACHE_HOME',
                                os.path.join(os.path.expanduser('~'), '.cache'))
 CACHE_DIR = os.path.join(XDG_CACHE_DIR, 'howdoi')
@@ -83,22 +96,31 @@ def get_proxies():
 
 def _get_result(url):
     try:
-        return requests.get(url, headers={'User-Agent': random.choice(USER_AGENTS)}, proxies=get_proxies(),
-                verify=VERIFY_SSL_CERTIFICATE).text
+        return requests.get(url,
+                            headers={
+                                     'User-Agent':
+                                     random.choice(USER_AGENTS)},
+                            proxies=get_proxies(),
+                            verify=VERIFY_SSL_CERTIFICATE).text
     except requests.exceptions.SSLError as e:
         print('[ERROR] Encountered an SSL Error. Try using HTTP instead of '
-              'HTTPS by setting the environment variable "HOWDOI_DISABLE_SSL".\n')
+              'HTTPS by setting the environment variable'
+              '"HOWDOI_DISABLE_SSL".\n')
         raise e
 
 
 def _get_links(query):
-    result = _get_result(SEARCH_URL.format(URL, url_quote(query)))
+    result = _get_result(SEARCH_URL.format(site=URL,
+                                           query=url_quote(query)))
     html = pq(result)
     return [a.attrib['href'] for a in html('.l')] or \
         [a.attrib['href'] for a in html('.r')('a')]
 
 
 def get_link_at_pos(links, position):
+    """Return a link based from *position*.
+    If position > links, return the last link
+    from links."""
     if not links:
         return False
 
@@ -116,6 +138,8 @@ def _format_output(code, args):
 
     # try to find a lexer using the StackOverflow tags
     # or the query arguments
+    # ==> + disini menambah isi list dengan val dari
+    # ==> args['tags'] << Noted
     for keyword in args['query'].split() + args['tags']:
         try:
             lexer = get_lexer_by_name(keyword)
@@ -213,26 +237,41 @@ def _clear_cache():
 def howdoi(args):
     args['query'] = ' '.join(args['query']).replace('?', '')
     try:
-        return _get_instructions(args) or 'Sorry, couldn\'t find any help with that topic\n'
+        return _get_instructions(args) or 'Sorry, couldn\'t find any help \
+                with that topic\n'
     except (ConnectionError, SSLError):
         return 'Failed to establish network connection\n'
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(description='instant coding answers via the command line')
+    parser = argparse.ArgumentParser(
+            description='instant coding answers via the command line')
     parser.add_argument('query', metavar='QUERY', type=str, nargs='*',
                         help='the question to answer')
-    parser.add_argument('-p', '--pos', help='select answer in specified position (default: 1)', default=1, type=int)
-    parser.add_argument('-a', '--all', help='display the full text of the answer',
+    parser.add_argument('-p',
+                        '--pos',
+                        help='select answer in specified \
+                                position (default: 1)',
+                        default=1,
+                        type=int)
+    parser.add_argument('-a',
+                        '--all',
+                        help='display the full text of the answer',
                         action='store_true')
     parser.add_argument('-l', '--link', help='display only the answer link',
                         action='store_true')
     parser.add_argument('-c', '--color', help='enable colorized output',
                         action='store_true')
-    parser.add_argument('-n', '--num-answers', help='number of answers to return', default=1, type=int)
+    parser.add_argument('-n',
+                        '--num-answers',
+                        help='number of answers to return',
+                        default=1,
+                        type=int)
     parser.add_argument('-C', '--clear-cache', help='clear the cache',
                         action='store_true')
-    parser.add_argument('-v', '--version', help='displays the current version of howdoi',
+    parser.add_argument('-v',
+                        '--version',
+                        help='displays the current version of howdoi',
                         action='store_true')
     return parser
 
@@ -240,6 +279,9 @@ def get_parser():
 def command_line_runner():
     parser = get_parser()
     args = vars(parser.parse_args())
+    # ==> vars(obj) --> dictionary
+    # ==> vars with object make an dictionary from object
+    # ==> equivalent with object.__dict__
 
     if args['version']:
         print(__version__)
