@@ -197,6 +197,7 @@ def _get_answer(args, links):
     # -=> krn kalau dengan sengaja kita pilih all, mk kalau dapat
     # -=> tag yang menunjukkan code langsung di highlight
     if not instructions and not args['all']:
+        # -=> instruksi adalah kode, baik sebaris atau multi baris
         text = first_answer.find('.post-text').eq(0).text()
     # -=> kalau dia memilih semua jawaban
 
@@ -210,7 +211,7 @@ def _get_answer(args, links):
                 else:
                     texts.append(current_text)
         texts.append('\n---\nAnswer from {0}'.format(link))
-        text = '\n'.join(texts)
+        text = '\n\n'.join(texts)
     else:
         text = _format_output(instructions.eq(0).text(), args)
     if text is None:
